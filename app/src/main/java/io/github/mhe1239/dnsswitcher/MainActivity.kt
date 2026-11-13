@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -24,10 +26,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +44,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 private data class AppEntry(val pkg: String, val label: String)
+
+// Position of the search box in the list: status, divider, mode pickers, divider, search.
+private const val SEARCH_ITEM_INDEX = 4
 
 // Same wording as Samsung's Private DNS screen.
 private val MODE_LABELS = listOf(
@@ -66,9 +73,15 @@ class MainActivity : ComponentActivity() {
         // shortcut: labels load on the main thread; move to a coroutine if startup feels slow.
         val apps = remember { launchableApps() }
         var targets by remember { mutableStateOf(Prefs.targets(this)) }
+        var query by remember { mutableStateOf("") }
+        val shown = apps.filter { query.isBlank() || it.label.contains(query.trim(), true) || it.pkg.contains(query.trim(), true) }
+        val listState = rememberLazyListState()
+        // Bring the search box to the top so its results are not hidden under the keyboard.
+        LaunchedEffect(query) { if (query.isNotEmpty()) listState.scrollToItem(SEARCH_ITEM_INDEX) }
 
         Scaffold { inner ->
-            LazyColumn(Modifier.fillMaxSize().padding(inner)) {
+            // imePadding: keep search results scrollable above the keyboard
+            LazyColumn(Modifier.fillMaxSize().padding(inner).imePadding(), state = listState) {
                 item(key = "status:$resumeCount") { Status() }
                 item { HorizontalDivider() }
                 item {
@@ -87,7 +100,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 item { HorizontalDivider() }
-                items(apps, key = { it.pkg }) { app ->
+                item {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        label = { Text("앱 검색 (이름 또는 패키지)") },
+                        singleLine = true,
+                    )
+                }
+                items(shown, key = { it.pkg }) { app ->
                     val checked = app.pkg in targets
                     val toggle = {
                         targets = if (checked) targets - app.pkg else targets + app.pkg
