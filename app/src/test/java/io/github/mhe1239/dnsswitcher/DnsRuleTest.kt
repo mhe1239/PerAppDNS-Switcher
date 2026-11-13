@@ -20,4 +20,14 @@ class DnsRuleTest {
 
     @Test fun targetWinsEvenWithoutHostname() =
         assertEquals(MODE_AUTO, desiredMode("com.example.target", targets, null))
+
+    @Test fun chosenModesAreUsed() {
+        assertEquals(MODE_OFF, desiredMode("com.example.target", targets, "dns.example", MODE_AUTO, MODE_OFF))
+        assertEquals(MODE_AUTO, desiredMode("com.example.other", targets, "dns.example", MODE_AUTO, MODE_OFF))
+    }
+
+    @Test fun hostnameAsTargetModeNeedsHostname() {
+        assertEquals(MODE_HOSTNAME, desiredMode("com.example.target", targets, "dns.example", MODE_OFF, MODE_HOSTNAME))
+        assertNull(desiredMode("com.example.target", targets, null, MODE_OFF, MODE_HOSTNAME))
+    }
 }

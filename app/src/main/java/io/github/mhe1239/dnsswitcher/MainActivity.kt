@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +40,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 
 private data class AppEntry(val pkg: String, val label: String)
+
+// Same wording as Samsung's Private DNS screen.
+private val MODE_LABELS = listOf(
+    MODE_OFF to "사용 안함",
+    MODE_AUTO to "자동(권장)",
+    MODE_HOSTNAME to "프라이빗 DNS 공급자 호스트 이름",
+)
 
 class MainActivity : ComponentActivity() {
     private var resumeCount by mutableIntStateOf(0)
@@ -62,12 +72,21 @@ class MainActivity : ComponentActivity() {
                 item(key = "status:$resumeCount") { Status() }
                 item { HorizontalDivider() }
                 item {
-                    Text(
-                        "아래에서 고른 앱이 화면에 있을 때만 프라이빗 DNS를 '자동'으로 바꿉니다.",
-                        Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    var defaultMode by remember { mutableStateOf(Prefs.defaultMode(this@MainActivity)) }
+                    var targetMode by remember { mutableStateOf(Prefs.targetMode(this@MainActivity)) }
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        ModePicker("기본", defaultMode) {
+                            defaultMode = it
+                            Prefs.setDefaultMode(this@MainActivity, it)
+                        }
+                        ModePicker("체크한 앱이 화면에 있을 때", targetMode) {
+                            targetMode = it
+                            Prefs.setTargetMode(this@MainActivity, it)
+                        }
+                        Text("바뀐 모드는 다음 앱 전환부터 적용됩니다.", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
+                item { HorizontalDivider() }
                 items(apps, key = { it.pkg }) { app ->
                     val checked = app.pkg in targets
                     val toggle = {
@@ -86,6 +105,24 @@ class MainActivity : ComponentActivity() {
                             Text(app.pkg, style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun ModePicker(title: String, selected: String, onSelect: (String) -> Unit) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Column(Modifier.selectableGroup()) {
+            for ((mode, label) in MODE_LABELS) {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .selectable(selected = mode == selected, role = Role.RadioButton) { onSelect(mode) }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = mode == selected, onClick = null)
+                    Text(label, Modifier.padding(start = 8.dp))
                 }
             }
         }
